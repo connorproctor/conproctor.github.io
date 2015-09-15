@@ -1,0 +1,21 @@
+---
+layout: default
+---
+
+<div>
+  {% for post in site.posts %}
+    <div>
+      <h1>
+        <a href="{{post.url}}" class="implicit">{{ post.title }}</a>
+      </h1>
+      <p>
+        {{ post.excerpt | markdownify }}
+      </p>
+      <div class="read-more"><a href="{{ post.url }}">Read more</a></div>
+    </div>
+  {% endfor %}
+
+  <hr>
+  <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
+
+</div>
