@@ -6,6 +6,7 @@ $trueblue:rgb(5, 129, 193);
 
 body {
 	font-family: 'Open Sans', sans-serif;
+	font-size: 16px;
 }
 
 h1, h2, h3, h4, p {
@@ -32,14 +33,24 @@ a {
 	}
 }
 
+.post-content {
+	img {
+		border: 2px solid lightgrey;
+		border-radius: 3px;
+	}
+}
 
 /* sidebar styles */
 .sidebar-column {
 	padding-left: 0;
 }
 
-.external-links > a {
-	margin-right: 18px;
+.external-links {
+	margin-top: 30px;
+
+	> a {
+		margin-right: 18px;
+	}
 }
 
 // Import partials from `sass_dir`
