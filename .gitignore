@@ -1,5 +1,2 @@
-_site
-_drafts/*
-!_drafts/.gitkeep
-.sass-cache
 .DS_STORE
+ideas.txt
