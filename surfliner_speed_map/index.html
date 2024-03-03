@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Amtrak Speed Heatmap</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-gpx@1.4.0"></script>
+  <script src="https://d3js.org/d3.v6.min.js"></script>
+  <style>
+    .legend {
+      padding: 10px;
+      background: white;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+      border-radius: 5px;
+      font-size: 2em;
+    }
+
+    .legend i {
+      width: 36px;
+      height: 36px;
+      float: left;
+      margin-right: 8px;
+      opacity: 0.7;
+    }
+  </style>
+</head>
+
+<body>
+  <h2>Southbound Amtrak Pacific Surfliner Speed Map</h2>
+  <div id="map" style="width: 99vw; height: 90vh"></div>
+  <script>
+    const map = L.map("map", { preferCanvas: true }).setView([0, 0], 13); // Default center
+
+    // Add a base map
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19,
+      }
+    ).addTo(map);
+
+    function speedColor(value, min, max) {
+      const percent = (value - min) / (max - min);
+      return d3.interpolateCividis(percent);
+    }
+
+    function calculateSpeed(point1, point2) {
+      const distanceInMeters = map.distance(point1, point2);
+      const distanceInMiles = distanceInMeters * 0.000621371; // Convert distance to miles
+      const timeInSeconds =
+        (new Date(point2.meta.time) - new Date(point1.meta.time)) / 1000; // Time difference in seconds
+      const timeInHours = timeInSeconds / 3600; // Convert time to hours
+      return Math.round(distanceInMiles / timeInHours); // Resulting speed in mph
+    }
+
+    let minSpeed = 0;
+    let maxSpeed = 0;
+    let amtrakStops;
+    const lineWeight = 10;
+
+    function addLegend() {
+      const legend = L.control({ position: "bottomright" });
+      legend.onAdd = function (map) {
+        const div = L.DomUtil.create("div", "info legend");
+        const grades = [maxSpeed, (minSpeed + maxSpeed) / 2, 0]; // Min, Mid, Max
+        const labels = [];
+        const gradientColors = [
+          speedColor(maxSpeed, minSpeed, maxSpeed),
+          speedColor((minSpeed + maxSpeed) / 2, minSpeed, maxSpeed),
+          speedColor(minSpeed, minSpeed, maxSpeed),
+        ];
+
+        // Loop through our intervals and generate a colored square for each interval
+        for (let i = 0; i < grades.length; i++) {
+          labels.push(
+            `<i style="background: ${gradientColors[i]}"></i> ${grades[
+              i
+            ].toFixed(2)} mph`
+          );
+        }
+
+        div.innerHTML = labels.join("<br>");
+        return div;
+      };
+      legend.addTo(map);
+    }
+
+    // Load GPX file
+    new L.GPX("Amtrak_770.gpx", {
+      async: true,
+      marker_options: {
+        startIconUrl: null,
+        endIconUrl: null,
+        shadowUrl: null,
+      },
+      polyline_options: {
+        opacity: 0,
+      },
+    })
+      .on("loaded", function (event) {
+        const gpx = event.target;
+
+        const layers = gpx.getLayers();
+        for (const layer of layers) {
+          if (layer instanceof L.Polyline) {
+            const points = layer
+              .getLatLngs()
+              .filter((point, index) => index % 10 === 0);
+
+            // find min/max speed for color gradient
+            for (let i = 0; i < points.length - 1; i++) {
+              const start = points[i];
+              const end = points[i + 1];
+              const speed = calculateSpeed(start, end);
+              if (speed > maxSpeed) maxSpeed = speed;
+            }
+            console.log(maxSpeed);
+
+            L.polyline(points, {
+              color: "white",
+              weight: lineWeight * 1.2,
+            }).addTo(map);
+
+            for (let i = 0; i < points.length - 1; i++) {
+              // L.circleMarker(points[i]).addTo(map);
+              const start = points[i];
+              const end = points[i + 1];
+              const speed = calculateSpeed(start, end);
+
+              const segment = L.polyline([start, end], {
+                color: speedColor(speed, minSpeed, maxSpeed),
+                weight: lineWeight,
+              }).addTo(map);
+              segment.on("mouseover", function () {
+                this.bindTooltip(
+                  `Speed: ${speed.toFixed(2)} mph`
+                ).openTooltip();
+              });
+
+              segment.on("mouseout", function () {
+                this.closeTooltip();
+              });
+            }
+
+            map.fitBounds(points);
+            if (amtrakStops) {
+              amtrakStops.bringToFront();
+            }
+
+            addLegend();
+          }
+        }
+      })
+      .addTo(map);
+
+    fetch("amtrak_stops.geojson")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        return response.json();
+      })
+      .then((data) => {
+        // Add the GeoJSON data to the map
+        amtrakStops = L.geoJSON(data, {
+          onEachFeature: function (feature, layer) {
+            // Optional: Bind a popup to each transit stop with its name/any other property
+            if (feature.properties && feature.properties.stop_name) {
+              layer.bindPopup(feature.properties.stop_id);
+            }
+          },
+          pointToLayer: function (feature, latlng) {
+            if (["LPS", "GUA", "SLO", "GTA", "GVB"].includes(feature["properties"]["stop_id"])) {
+              return
+            }
+            // Represent each point as a circle marker with a defined style
+            return L.circleMarker(latlng, {
+              radius: (lineWeight * 1.5) / 2, // size
+              fillColor: "blue", // fill color
+              color: "#000", // outline color
+              weight: 1, // outline width
+              opacity: 1,
+              fillOpacity: 0.8, // fill opacity
+            });
+          },
+        }).addTo(map);
+        //   map.fitBounds(coaster_stops.getBounds());
+      })
+      .catch((error) => {
+        console.log(
+          "There was a problem with the fetch operation:",
+          error.message
+        );
+      });
+  </script>
+</body>
+
+</html>
