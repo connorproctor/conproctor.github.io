@@ -9,6 +9,11 @@
   <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-gpx@1.4.0"></script>
   <script src="https://d3js.org/d3.v6.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&display=swap"
+    rel="stylesheet">
   <style>
     .legend {
       padding: 10px;
@@ -25,12 +30,46 @@
       margin-right: 8px;
       opacity: 0.7;
     }
+
+    body {
+      font-family: "Roboto", sans-serif;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0;
+
+      & h2 {
+        margin-bottom: 0;
+        margin-top: 0.25em;
+      }
+    }
+
+    .map-container {
+      display: flex;
+
+      & #map {
+        flex-grow: 1;
+        height: 90dvh;
+      }
+    }
   </style>
 </head>
 
 <body>
-  <h2>Southbound Amtrak Pacific Surfliner Speed Map</h2>
-  <div id="map" style="width: 99vw; height: 90vh"></div>
+  <div class="header">
+    <h2>Southbound Amtrak Pacific Surfliner Speed Map</h2>
+    <div>
+      <a href="http://ridesd.org/posts/lossan-speed-map" target="_blank">
+        More info
+      </a>
+    </div>
+  </div>
+  <div class="map-container">
+    <div id="map"></div>
+  </div>
   <script>
     const map = L.map("map", { preferCanvas: true }).setView([0, 0], 13); // Default center
 
@@ -80,7 +119,7 @@
           labels.push(
             `<i style="background: ${gradientColors[i]}"></i> ${grades[
               i
-            ].toFixed(2)} mph`
+            ].toFixed(0)} mph`
           );
         }
 
@@ -136,9 +175,10 @@
                 color: speedColor(speed, minSpeed, maxSpeed),
                 weight: lineWeight,
               }).addTo(map);
+              segment.bindPopup(`Speed: ${speed.toFixed(0)} mph`);
               segment.on("mouseover", function () {
                 this.bindTooltip(
-                  `Speed: ${speed.toFixed(2)} mph`
+                  `Speed: ${speed.toFixed(0)} mph`
                 ).openTooltip();
               });
 
@@ -171,21 +211,21 @@
           onEachFeature: function (feature, layer) {
             // Optional: Bind a popup to each transit stop with its name/any other property
             if (feature.properties && feature.properties.stop_name) {
-              layer.bindPopup(feature.properties.stop_id);
+              layer.bindPopup(feature.properties.stop_name);
             }
           },
           pointToLayer: function (feature, latlng) {
             if (["LPS", "GUA", "SLO", "GTA", "GVB"].includes(feature["properties"]["stop_id"])) {
-              return
+              return;
             }
             // Represent each point as a circle marker with a defined style
             return L.circleMarker(latlng, {
-              radius: (lineWeight * 1.5) / 2, // size
-              fillColor: "blue", // fill color
+              radius: (lineWeight * 1.2) / 2, // size
+              fillColor: "white", // fill color
               color: "#000", // outline color
-              weight: 1, // outline width
+              weight: 1.3, // outline width
               opacity: 1,
-              fillOpacity: 0.8, // fill opacity
+              fillOpacity: 0.9, // fill opacity
             });
           },
         }).addTo(map);
